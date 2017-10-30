@@ -49,10 +49,171 @@ class Board extends React.Component {
       boardValues: boardVals,
       redIsNext: true,
       winner: null,
+      boardSize: 7,
+      scoreCache: []
     };
   }
 
-  handleClick(colNum) {
+  getHash() {
+    var p = this.state.redIsNext ? 'r' : 'b';
+    return ''+p+this.state.boardVals.toString();
+  }
+
+  getMiniMax() {
+    if(this.state.winner != null) {
+      return;
+    }
+    var currMaxCol = -1;
+    var currMaxScore = -10000;
+    const squares = this.state.boardValues.slice();
+    const currPlayer = this.state.redIsNext ? 'Red' : 'Blue';
+    const opposingPlayer = this.state.redIsNext ? 'Blue' : 'Red';
+    var colScores = Array(7).fill(-10000);
+    for (var k = 0; k < 7; k++) { colScores[k]=[0,0]; }
+    for(var colNum = 0; colNum < this.state.boardSize; colNum++) {
+      for(var j = 0; j < squares[colNum].length; j++) {
+        if(squares[colNum][j] === null) {
+          if(checkWinner(squares, currPlayer, j, colNum)) {
+            return colNum;
+          } else {
+            var maxScore = this.getScore(squares, colNum, j, currPlayer);
+            var minScore = -this.getScore(squares, colNum, j, opposingPlayer);
+            colScores[colNum] = maxScore - minScore;
+            if(checkWinner(squares, opposingPlayer, j, colNum)) {
+                colScores[colNum] = 9999;
+            }
+          }
+          break;
+        }
+      }
+    }
+
+    for(colNum = 0; colNum < 7; colNum++) {
+      if(currMaxCol === -1 || currMaxScore < colScores[colNum]) {
+        currMaxScore = colScores[colNum];
+        currMaxCol = colNum;
+      }
+    }
+    return currMaxCol;
+  }
+
+  getScore(squares, colNum, rowNum, player) {
+    var score = 0;
+    // column
+    for(var i = 1; i < 4; i++) {
+      if((rowNum - i) >= 0) {
+        if(squares[colNum][rowNum - i] === player) {
+          score += 100;
+        } else {
+          break;
+        }
+      }
+    }
+
+    // row to the left
+    for(i = 1; i < 4; i++) {
+      if((colNum - i) >= 0) {
+        if(squares[colNum - i][rowNum] === player) {
+          score += 100;
+        } else if(squares[colNum - i][rowNum] === null) {
+          score += 50;
+        } else {
+          break;
+        }
+      }
+    }
+
+    // row to the right
+    for(i = 1; i < 4; i++) {
+      if((colNum + i) < 7) {
+        if(squares[colNum + i][rowNum] === player) {
+          score += 100;
+        } else if(squares[colNum + i][rowNum] === null) {
+          score += 50;
+        } else {
+          break;
+        }
+      }
+    }
+
+    // down left
+    for(i = 1; i < 4; i++) {
+      if((colNum - i) >= 0 && (rowNum - i) >= 0) {
+        if(squares[colNum - i][rowNum - i] === player) {
+          score += 100;
+        } else if(squares[colNum - i][rowNum - i] === null) {
+          score += 50;
+        } else {
+          break;
+        }
+      }
+    }
+
+    // down left
+    for(i = 1; i < 4; i++) {
+      if((colNum - i) >= 0 && (rowNum + i) < 6) {
+        if(squares[colNum - i][rowNum + i] === player) {
+          score += 100;
+        } else if(squares[colNum - i][rowNum + i] === null) {
+          score += 50;
+        } else {
+          break;
+        }
+      }
+    }
+
+    // down left
+    for(i = 1; i < 4; i++) {
+      if((colNum + i) < 7 && (rowNum + i) < 6) {
+        if(squares[colNum + i][rowNum + i] === player) {
+          score += 100;
+        } else if(squares[colNum + i][rowNum + i] === null) {
+          score += 50;
+        } else {
+          break;
+        }
+      }
+    }
+
+    // down left
+    for(i = 1; i < 4; i++) {
+      if((colNum + i) < 7 && (rowNum - i) >= 0) {
+        if(squares[colNum + i][rowNum - i] === player) {
+          score += 100;
+        } else if(squares[colNum + i][rowNum - i] === null) {
+          score += 50;
+        } else {
+          break;
+        }
+      }
+    }
+
+    return score;
+  }
+
+  compPlay() {
+    var colNum = this.getMiniMax();
+    const squares = this.state.boardValues.slice();
+    const currPlayer = this.state.redIsNext ? 'Red' : 'Blue';
+    let isWinner;
+    for(var j = 0; j < squares[colNum].length; j++) {
+      if(squares[colNum][j] === null) {
+        squares[colNum][j] = currPlayer;
+        isWinner = checkWinner(squares, currPlayer, j, colNum);
+        break;
+      }
+      if((j + 1) === squares[colNum].length) {
+        return;
+      }
+    }
+
+    var currWinner = isWinner ? currPlayer : null;
+    this.setState({squares: squares,
+                  redIsNext: !this.state.redIsNext,
+                  winner: currWinner,});
+  }
+
+  handleClick(colNum, playComp = true) {
     if(this.state.winner != null) {
       return;
     }
@@ -73,7 +234,9 @@ class Board extends React.Component {
     var currWinner = isWinner ? currPlayer : null;
     this.setState({squares: squares,
                   redIsNext: !this.state.redIsNext,
-                  winner: currWinner,});
+                  winner: currWinner,}, () => {
+            this.compPlay();
+        });
   }
 
   renderCol(i) {
@@ -112,148 +275,143 @@ class Board extends React.Component {
 }
 
 class Game extends React.Component {
-  render() {
-    return (
-      <div className="game">
+  constructor() {
+    super();
+    this.state = {
+      playerNum: 0
+    };
+  }
 
-          <Board />
+  onClick(num) {
+    this.setState = {
+      playerNum: num
+    }
+  }
+
+  render() {
+    console.log(this.state.playerNum);
+    var boardPage = (
+      <div>
+
+          <Board
+            playerNums={this.state.playerNum}
+           />
       </div>
     );
+
+    var playerNumPage = (
+      <div>
+        <div className="player-num">How many players?</div>
+        <button onClick={() => this.onClick(1)}>
+          <div className="square-button">1</div>
+        </button>
+        <button onClick={() => this.onClick(2)}>
+          <div className="square-button">2</div>
+        </button>
+      </div>
+    );
+    var currPAge = (this.state.playerNum > 0) ? boardPage : playerNumPage;
+    console.log(currPAge);
+    return (<div className="game">{boardPage}</div>);
   }
 }
 
+
 function checkWinner(squares, player, rowNum, colNum) {
   var count = 0;
-  var currSquare = null;
-  var i = 0;
-  if(colNum > 2) {
-    //check horizontal to the left
-    for(i = 0; i < 4; i++) {
-      currSquare = squares[colNum - i][rowNum];
-      if(currSquare === player) {
-        count++;
+  // column
+  for(var i = 1; i < 4; i++) {
+    if((rowNum - i) >= 0) {
+      if(squares[colNum][rowNum - i] === player) {
+        count += 1;
       } else {
         break;
       }
     }
-
-    if(count >= 4) {
-      return true;
-    }
-
-    // checking diagonal up and to the left
-    count = 0;
-    if(rowNum < 3) {
-      for(i = 0; i < 4; i++) {
-        currSquare = squares[colNum - i][rowNum + i];
-        if(currSquare === player) {
-          count++;
-        } else {
-          break;
-        }
-      }
-    }
-    if(count >= 4) {
-      return true;
-    }
-
-    // checking diagonal down and to the left
-    count = 0;
-    if(rowNum > 2) {
-      for(i = 0; i < 4; i++) {
-        currSquare = squares[colNum - i][rowNum - i];
-        if(currSquare === player) {
-          count++;
-        } else {
-          break;
-        }
-      }
-    }
-    if(count >= 4) {
-      return true;
-    }
   }
-
-  if(colNum < 4) {
-    //check horizontal to the right
-    count = 0;
-    for(i = 0; i < 4; i++) {
-      currSquare = squares[colNum + i][rowNum];
-      if(currSquare === player) {
-        count++;
+  if(count >= 3) {
+    return true;
+  }
+  count = 0;
+  // row to the left
+  for(i = 1; i < 4; i++) {
+    if((colNum - i) >= 0) {
+      if(squares[colNum - i][rowNum] === player) {
+        count += 1;
       } else {
         break;
       }
     }
-
-    if(count >= 4) {
-      return true;
-    }
-
-    // checking diagonal up and to the right
-    count = 0;
-    if(rowNum < 3) {
-      for(i = 0; i < 4; i++) {
-        currSquare = squares[colNum + i][rowNum + i];
-        if(currSquare === player) {
-          count++;
-        } else {
-          break;
-        }
-      }
-    }
-    if(count >= 4) {
-      return true;
-    }
-
-    // checking diagonal down and to the right
-    count = 0;
-    if(rowNum > 2) {
-      for(i = 0; i < 4; i++) {
-        currSquare = squares[colNum + i][rowNum - i];
-        if(currSquare === player) {
-          count++;
-        } else {
-          break;
-        }
-      }
-    }
-    if(count >= 4) {
-      return true;
-    }
   }
 
-  // checking down
-  if(rowNum > 2) {
-    count = 0;
-    for(i = 0; i < 4; i++) {
-      currSquare = squares[colNum][rowNum - i];
-      if(currSquare === player) {
-        count++;
+  // row to the right
+  for(i = 1; i < 4; i++) {
+    if((colNum + i) < 7) {
+      if(squares[colNum + i][rowNum] === player) {
+        count += 1;
       } else {
         break;
       }
     }
-    if(count >= 4) {
-      return true;
-    }
   }
 
-  // checking up
-  if(rowNum < 3) {
-    count = 0;
-    for(i = 0; i < 4; i++) {
-      currSquare = squares[colNum][rowNum + i];
-      if(currSquare === player) {
-        count++;
+  if(count >= 3) {
+    return true;
+  }
+  count = 0;
+
+  // down left
+  for(i = 1; i < 4; i++) {
+    if((colNum - i) >= 0 && (rowNum - i) >= 0) {
+      if(squares[colNum - i][rowNum - i] === player) {
+        count += 1;
       } else {
         break;
       }
     }
-    if(count >= 4) {
-      return true;
+  }
+
+  // down left
+  for(i = 1; i < 4; i++) {
+    if((colNum + i) < 7 && (rowNum + i) < 6) {
+      if(squares[colNum + i][rowNum + i] === player) {
+        count += 1;
+      } else {
+        break;
+      }
     }
   }
+
+  if(count >= 3) {
+    return true;
+  }
+  count = 0;
+
+  // down left
+  for(i = 1; i < 4; i++) {
+    if((colNum - i) >= 0 && (rowNum + i) < 6) {
+      if(squares[colNum - i][rowNum + i] === player) {
+        count += 1;
+      } else {
+        break;
+      }
+    }
+  }
+
+  // down left
+  for(i = 1; i < 4; i++) {
+    if((colNum + i) < 7 && (rowNum - i) >= 0) {
+      if(squares[colNum + i][rowNum - i] === player) {
+        count += 1;
+      } else {
+        break;
+      }
+    }
+  }
+  if(count >= 3) {
+    return true;
+  }
+  count = 0;
 
   return false;
 }
