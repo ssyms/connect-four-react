@@ -59,42 +59,29 @@ class Board extends React.Component {
     return ''+p+this.state.boardVals.toString();
   }
 
-  getMiniMax() {
-    if(this.state.winner != null) {
-      return;
+  getMiniMax(mmSquares, currPlayer, depth, colScores) {
+    if(depth === 0) {
+      return colScores;
     }
-    var currMaxCol = -1;
-    var currMaxScore = -10000;
-    const squares = this.state.boardValues.slice();
-    const currPlayer = this.state.redIsNext ? 'Red' : 'Blue';
-    const opposingPlayer = this.state.redIsNext ? 'Blue' : 'Red';
-    var colScores = Array(7).fill(-10000);
-    for (var k = 0; k < 7; k++) { colScores[k]=[0,0]; }
+    const opposingPlayer = (currPlayer === 'Blue') ? 'Blue' : 'Red';
     for(var colNum = 0; colNum < this.state.boardSize; colNum++) {
-      for(var j = 0; j < squares[colNum].length; j++) {
-        if(squares[colNum][j] === null) {
-          if(checkWinner(squares, currPlayer, j, colNum)) {
-            return colNum;
-          } else {
-            var maxScore = this.getScore(squares, colNum, j, currPlayer);
-            var minScore = -this.getScore(squares, colNum, j, opposingPlayer);
-            colScores[colNum] = maxScore - minScore;
-            if(checkWinner(squares, opposingPlayer, j, colNum)) {
-                colScores[colNum] = 9999;
-            }
+      for(var j = 0; j < mmSquares[colNum].length; j++) {
+        if(mmSquares[colNum][j] === null) {
+
+          var score = this.getScore(mmSquares, colNum, j, currPlayer);
+
+          const newSquares = mmSquares.slice();
+          newSquares[colNum][j] = currPlayer;
+          var oppScores = this.getMiniMax(newSquares, opposingPlayer, depth - 1, colScores);
+          var oppScore = 0;
+          for(var oppCol in oppScores) {
+            oppScore += oppScores[oppCol];
           }
-          break;
+          colScores[colNum] = score - oppScore;
         }
       }
     }
-
-    for(colNum = 0; colNum < 7; colNum++) {
-      if(currMaxCol === -1 || currMaxScore < colScores[colNum]) {
-        currMaxScore = colScores[colNum];
-        currMaxCol = colNum;
-      }
-    }
-    return currMaxCol;
+    return colScores;
   }
 
   getScore(squares, colNum, rowNum, player) {
@@ -103,7 +90,7 @@ class Board extends React.Component {
     for(var i = 1; i < 4; i++) {
       if((rowNum - i) >= 0) {
         if(squares[colNum][rowNum - i] === player) {
-          score += 100;
+          score += 100 * i;
         } else {
           break;
         }
@@ -114,9 +101,9 @@ class Board extends React.Component {
     for(i = 1; i < 4; i++) {
       if((colNum - i) >= 0) {
         if(squares[colNum - i][rowNum] === player) {
-          score += 100;
+          score += 100 * i;
         } else if(squares[colNum - i][rowNum] === null) {
-          score += 50;
+          score += 50 * i;
         } else {
           break;
         }
@@ -127,9 +114,9 @@ class Board extends React.Component {
     for(i = 1; i < 4; i++) {
       if((colNum + i) < 7) {
         if(squares[colNum + i][rowNum] === player) {
-          score += 100;
+          score += 100 * i;
         } else if(squares[colNum + i][rowNum] === null) {
-          score += 50;
+          score += 50 * i;
         } else {
           break;
         }
@@ -140,9 +127,9 @@ class Board extends React.Component {
     for(i = 1; i < 4; i++) {
       if((colNum - i) >= 0 && (rowNum - i) >= 0) {
         if(squares[colNum - i][rowNum - i] === player) {
-          score += 100;
+          score += 100 * i;
         } else if(squares[colNum - i][rowNum - i] === null) {
-          score += 50;
+          score += 50 * i;
         } else {
           break;
         }
@@ -153,9 +140,9 @@ class Board extends React.Component {
     for(i = 1; i < 4; i++) {
       if((colNum - i) >= 0 && (rowNum + i) < 6) {
         if(squares[colNum - i][rowNum + i] === player) {
-          score += 100;
+          score += 100 * i;
         } else if(squares[colNum - i][rowNum + i] === null) {
-          score += 50;
+          score += 50 * i;
         } else {
           break;
         }
@@ -166,9 +153,9 @@ class Board extends React.Component {
     for(i = 1; i < 4; i++) {
       if((colNum + i) < 7 && (rowNum + i) < 6) {
         if(squares[colNum + i][rowNum + i] === player) {
-          score += 100;
+          score += 100 * i;
         } else if(squares[colNum + i][rowNum + i] === null) {
-          score += 50;
+          score += 50 * i;
         } else {
           break;
         }
@@ -179,35 +166,99 @@ class Board extends React.Component {
     for(i = 1; i < 4; i++) {
       if((colNum + i) < 7 && (rowNum - i) >= 0) {
         if(squares[colNum + i][rowNum - i] === player) {
-          score += 100;
+          score += 100 * i;
         } else if(squares[colNum + i][rowNum - i] === null) {
-          score += 50;
+          score += 50 * i;
         } else {
           break;
         }
       }
     }
 
+    if(colNum === 3 || colNum === 4) {
+      score += 1000;
+    } else if(colNum === 2 || colNum === 5) {
+      score += 1000;
+    }
+
     return score;
   }
 
   compPlay() {
-    var colNum = this.getMiniMax();
+    if(this.state.winner != null) {
+      return;
+    }
     const squares = this.state.boardValues.slice();
     const currPlayer = this.state.redIsNext ? 'Red' : 'Blue';
-    let isWinner;
-    for(var j = 0; j < squares[colNum].length; j++) {
-      if(squares[colNum][j] === null) {
-        squares[colNum][j] = currPlayer;
-        isWinner = checkWinner(squares, currPlayer, j, colNum);
-        break;
-      }
-      if((j + 1) === squares[colNum].length) {
-        return;
+    const opposingPlayer = this.state.redIsNext ? 'Blue' : 'Red';
+
+    // Checks if current player can win in one move
+    for(var colNum = 0; colNum < this.state.boardSize; colNum++) {
+      for(var j = 0; j < squares[colNum].length; j++) {
+        if(squares[colNum][j] === null) {
+          if(checkWinner(squares, currPlayer, j, colNum)) {
+            console.log("current winner");
+            squares[colNum][j] = currPlayer;
+            var currWinner = currPlayer;
+            this.setState({squares: squares,
+                          redIsNext: !this.state.redIsNext,
+                          winner: currPlayer,});
+            return;
+          }
+          break;
+        }
       }
     }
 
-    var currWinner = isWinner ? currPlayer : null;
+    // Checks if opposing player is about to win
+    for(var colNum = 0; colNum < this.state.boardSize; colNum++) {
+      for(var j = 0; j < squares[colNum].length; j++) {
+        if(squares[colNum][j] === null) {
+          if(checkWinner(squares, opposingPlayer, j, colNum)) {
+            console.log("opposing player");
+            squares[colNum][j] = currPlayer;
+            this.setState({squares: squares,
+                          redIsNext: !this.state.redIsNext,
+                          winner: null,});
+            return;
+          }
+          break;
+        }
+      }
+    }
+
+    // Gets the best move by looking forward a certain amount of moves
+    var depth = 4;
+    var colScores = Array(7).fill(0);
+    var minmaxBoard = [Array(6).fill(null),
+                    Array(6).fill(null),
+                    Array(6).fill(null),
+                    Array(6).fill(null),
+                    Array(6).fill(null),
+                    Array(6).fill(null),
+                    Array(6).fill(null)];
+    for(colNum = 0; colNum < this.state.boardSize; colNum++) {
+      for(j = 0; j < 6; j++) {
+        minmaxBoard[colNum][j] = squares[colNum][j];
+      }
+    }
+
+    colScores = this.getMiniMax(minmaxBoard, currPlayer, depth, colScores);
+    // chooses column with the best score column with the best score
+    var currMaxCol = -1;
+    var currMaxScore = -10000;
+    for(colNum = 0; colNum < 7; colNum++) {
+      if(currMaxCol === -1 || currMaxScore < colScores[colNum]) {
+        currMaxScore = colScores[colNum];
+        currMaxCol = colNum;
+      }
+    }
+    for(var j = 0; j < squares[currMaxCol].length; j++) {
+      if(squares[currMaxCol][j] === null) {
+        squares[currMaxCol][j] = currPlayer;
+        break;
+      }
+    }
     this.setState({squares: squares,
                   redIsNext: !this.state.redIsNext,
                   winner: currWinner,});
@@ -310,8 +361,8 @@ class Game extends React.Component {
         </button>
       </div>
     );
-    var currPAge = (this.state.playerNum > 0) ? boardPage : playerNumPage;
-    console.log(currPAge);
+    var currPage = (this.state.playerNum > 0) ? boardPage : playerNumPage;
+    console.log(currPage);
     return (<div className="game">{boardPage}</div>);
   }
 }
